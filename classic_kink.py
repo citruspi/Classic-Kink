@@ -32,6 +32,8 @@ all_security_groups = list(set([group.name for group in all_security_groups]))
 
 vpc_security_group_ids = {}
 
+ignore = []
+
 new = -1
 
 while new != 0:
@@ -52,7 +54,9 @@ while new != 0:
         for rule in group.rules:
             for granted in rule.grants:
                 try:
-                    if granted.groupName not in all_security_groups:
+                    if granted.groupName in ignore:
+                        pass
+                    elif granted.groupName not in all_security_groups:
                         print 'Adding security group %s' % (granted.groupName)
                         all_security_groups.append(granted.groupName)
                         new = new+1
@@ -94,8 +98,9 @@ for security_group in all_security_groups:
             }
 
             try:
-                group_ids=[vpc_security_group_ids[granted.groupName]]
-                params['src_group'] = conn.get_all_security_groups(
+                if granted.groupName not in ignore:
+                    group_ids=[vpc_security_group_ids[granted.groupName]]
+                    params['src_group'] = conn.get_all_security_groups(
                                                         group_ids=group_ids)[0]
             except AttributeError:
                 params['cidr_ip'] = granted.cidr_ip
