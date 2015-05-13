@@ -2,6 +2,7 @@ import boto.ec2
 import boto.vpc
 import re
 import sys
+from classic_link.security_groups import resolve_dependencies
 
 conn = boto.ec2.connect_to_region(sys.argv[1])
 
@@ -34,36 +35,8 @@ vpc_security_group_ids = {}
 
 ignore = []
 
-new = -1
-
-while new != 0:
-    new = 0
-
-    for security_group in all_security_groups:
-
-        groups = conn.get_all_security_groups(filters={
-                                                'group-name': security_group})
-
-        for g in groups:
-            if g.vpc_id is None:
-                group = g
-                break
-
-        print 'Adding sources for %s' % (group.name)
-
-        for rule in group.rules:
-            for granted in rule.grants:
-                try:
-                    if granted.groupName in ignore:
-                        pass
-                    elif granted.groupName not in all_security_groups:
-                        print 'Adding security group %s' % (granted.groupName)
-                        all_security_groups.append(granted.groupName)
-                        new = new+1
-                except AttributeError:
-                    pass
-
-all_security_groups = list(set(all_security_groups))
+all_security_groups = resolve_dependencies(security_groups=all_security_groups,
+                                            conn=conn, ignore=ignore)
 
 for security_group in all_security_groups:
 
