@@ -2,7 +2,7 @@ import boto.ec2
 import boto.vpc
 import re
 import sys
-from classic_link.security_groups import resolve_dependencies
+from classic_link.security_groups import resolve_dependencies, diff
 
 conn = boto.ec2.connect_to_region(sys.argv[1])
 
@@ -62,29 +62,24 @@ for security_group in all_security_groups:
     vpc_edition = [group for group in groups if group.vpc_id is not None][0]
     classic_edition = [group for group in groups if group.vpc_id is None][0]
 
-    for rule in classic_edition.rules:
-        for granted in rule.grants:
-            params = {
-                'ip_protocol': rule.ip_protocol,
-                'from_port': rule.from_port,
-                'to_port': rule.to_port
-            }
+    new_rules = diff(classic_edition, vpc_edition, ignore=ignore)
 
-            try:
-                if granted.groupName not in ignore:
-                    group_ids=[vpc_security_group_ids[granted.groupName]]
-                    params['src_group'] = conn.get_all_security_groups(
-                                                        group_ids=group_ids)[0]
-            except AttributeError:
-                params['cidr_ip'] = granted.cidr_ip
+    for rule in new_rules:
+        params = {
+            'ip_protocol': rule['ip_protocol'],
+            'from_port': rule['from_port'],
+            'to_port': rule['to_port'],
+        }
 
-            try:
-                vpc_edition.authorize(**params)
-            except Exception, e:
-                if 'InvalidPermission.Duplicate' in str(e):
-                    pass
-                else:
-                    raise e
+        try:
+            filters = {'group-name': rule['group'], 'vpc-id': VPC_ID}
+            source_group = conn.get_all_security_groups(filters=filters)[0]
+
+            params['src_group'] = source_group
+        except KeyError:
+            params['cidr_ip'] = rule['cidr_ip']
+
+        vpc_edition.authorize(**params)
 
 vconn = boto.vpc.connect_to_region(sys.argv[1])
 
