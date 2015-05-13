@@ -32,6 +32,35 @@ all_security_groups = list(set([group.name for group in all_security_groups]))
 
 vpc_security_group_ids = {}
 
+new = -1
+
+while new != 0:
+    new = 0
+
+    for security_group in all_security_groups:
+
+        groups = conn.get_all_security_groups(filters={
+                                                'group-name': security_group})
+
+        for g in groups:
+            if g.vpc_id is None:
+                group = g
+                break
+
+        print 'Adding sources for %s' % (group.name)
+
+        for rule in group.rules:
+            for granted in rule.grants:
+                try:
+                    if granted.groupName not in all_security_groups:
+                        print 'Adding security group %s' % (granted.groupName)
+                        all_security_groups.append(granted.groupName)
+                        new = new+1
+                except AttributeError:
+                    pass
+
+all_security_groups = list(set(all_security_groups))
+
 for security_group in all_security_groups:
 
     print 'Checking if %s exists' % (security_group)
