@@ -71,3 +71,23 @@ def diff(a, b, ignore=None):
     return list(itertools.ifilterfalse(lambda x: x in a_rules, b_rules)) + \
            list(itertools.ifilterfalse(lambda x: x in b_rules, a_rules))
 
+def for_instances(instances, ignore=None):
+
+    ignore_map = {}
+
+    if ignore is not None:
+        for rule in ignore:
+            ignore_map[rule] = re.compile(rule)
+
+    security_groups = []
+
+    for instance in instances:
+        security.groups.extend([group.name for group in instance.groups])
+
+    security_groups = list(set(security_groups))
+
+    filter_ = lambda r: any([exp.match(r) for exp in ignore_map.values()])
+
+    security_groups = [g for g in security_groups if not filter_(g)]
+
+    return security_groups
