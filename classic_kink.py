@@ -2,7 +2,7 @@ import boto.ec2
 import boto.vpc
 import re
 import sys
-from classic_kink.security_groups import resolve_dependencies, diff, for_instances
+from classic_kink.security_groups import resolve_dependencies, diff, get, for_instances
 from classic_kink.instances import get_instances
 
 conn = boto.ec2.connect_to_region(sys.argv[1])
@@ -22,25 +22,18 @@ for security_group in all_security_groups:
 
     print 'Checking if %s exists' % (security_group)
 
-    vpc_groups = conn.get_all_security_groups(filters={
-                                                'group-name': security_group,
-                                                'vpc-id': VPC_ID})
+    group = get(security_group, conn, vpc_id=VPC_ID)
 
-    if len(vpc_groups) == 0:
+    if group is None:
         group = conn.create_security_group(security_group, security_group,
                                             vpc_id=VPC_ID)
 
-        vpc_security_group_ids[security_group] = group.id
-    else:
-        vpc_security_group_ids[security_group] = vpc_groups[0].id
+    vpc_security_group_ids[security_group] = group.id
 
 for security_group in all_security_groups:
 
-    groups = conn.get_all_security_groups(filters={
-                                                'group-name': security_group})
-
-    vpc_edition = [group for group in groups if group.vpc_id is not None][0]
-    classic_edition = [group for group in groups if group.vpc_id is None][0]
+    vpc_edition = get(security_group, conn, vpc_id=VPC_ID)
+    classic_edition = get(security_group, conn)
 
     new_rules = diff(classic_edition, vpc_edition, ignore=ignore)
 
@@ -52,8 +45,7 @@ for security_group in all_security_groups:
         }
 
         try:
-            filters = {'group-name': rule['group'], 'vpc-id': VPC_ID}
-            source_group = conn.get_all_security_groups(filters=filters)[0]
+            source_group = get(rule['group'], conn, vpc_id=VPC_ID)
 
             params['src_group'] = source_group
         except KeyError:

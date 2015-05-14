@@ -91,3 +91,29 @@ def for_instances(instances, ignore=None):
     security_groups = [g for g in security_groups if not filter_(g)]
 
     return security_groups
+
+def get(group, conn, vpc_id=None):
+
+    result = None
+
+    if vpc_id is None:
+        filters = {'group-name': group}
+
+        groups = conn.get_all_security_groups(filters=filters)
+        groups = [group for group in groups if group.vpc_id is None]
+
+        try:
+            return groups[0]
+        except IndexError:
+            return None
+
+    else:
+        filters = {'group-name': group, 'vpc-id': vpc_id}
+
+        groups = conn.get_all_security_groups(filters=filters)
+
+        try:
+            return groups[0]
+        except IndexError:
+            return None
+
