@@ -2,20 +2,14 @@ import boto.ec2
 import boto.vpc
 import re
 import sys
-from classic_link.security_groups import resolve_dependencies, diff
+from classic_kink.security_groups import resolve_dependencies, diff
+from classic_kink.instances import get_instances
 
 conn = boto.ec2.connect_to_region(sys.argv[1])
 
-filter_ = re.compile(sys.argv[2])
 VPC_ID = sys.argv[3]
 
-all_instances = []
-
-for reservation in conn.get_all_instances():
-    all_instances.extend(reservation.instances)
-
-all_instances = [instance for instance in all_instances if
-                filter_.match(instance.tags.get('Name', ''))]
+all_instances = get_instances(sys.argv[2], conn)
 
 all_instances = [instance for instance in all_instances if
                 instance.vpc_id is None]
